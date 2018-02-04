@@ -24,7 +24,8 @@ def convert_pr_units(cube):
     
     cube.data = cube.data * 86400
     cube.units = 'mm/day'
-    
+       
+    assert cube.units == 'mm/day', "Program assumes that input units are kg m-2 s-1"
     return cube
 
 
@@ -35,6 +36,7 @@ def apply_mask(pr_cube, sftlf_cube, realm):
         mask = numpy.where(sftlf_cube.data < 50, True, False)
     pr_cube.data = numpy.ma.asarray(pr_cube.data)
     pr_cube.data.mask = mask
+
     return pr_cube
 
 def plot_data(cube, month, gridlines=False):
