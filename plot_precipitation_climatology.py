@@ -1,12 +1,11 @@
 import argparse
-import numpy
 import iris
 iris.FUTURE.netcdf_promote = True
 import matplotlib.pyplot as plt
 import iris.plot as iplt
 import iris.coord_categorisation
 import cmocean
-import pdb
+import numpy
 
 
 def read_data(fname, month):
@@ -29,7 +28,16 @@ def convert_pr_units(cube):
     return cube
 
 
-def plot_data(cube, month, tick_levels, gridlines=False):
+def apply_mask(pr_cube, sftlf_cube, realm):
+    if realm == 'land':
+        mask = numpy.where(sftlf_cube.data > 50, True, False)
+    else:
+        mask = numpy.where(sftlf_cube.data < 50, True, False)
+    pr_cube.data = numpy.ma.asarray(pr_cube.data)
+    pr_cube.data.mask = mask
+    return pr_cube
+
+def plot_data(cube, month, gridlines=False):
     """Plot the data."""
         
     fig = plt.figure(figsize=[12,5])    
@@ -50,24 +58,32 @@ def plot_data(cube, month, tick_levels, gridlines=False):
 def main(inargs):
     """Run the program."""
 
-    cube = read_data(inargs.infile, inargs.month)   
-    #pdb.set_trace()
+    cube = read_data(inargs.infile, inargs.month)    
     cube = convert_pr_units(cube)
     clim = cube.collapsed('time', iris.analysis.MEAN)
-    plot_data(clim, inargs.month,inargs.tick_levels,inargs.gridlines)
+    
+    if inargs.mask:
+        sftlf_file, realm = inargs.mask
+        sftlf_cube = iris.load_cube(sftlf_file, 'land_area_fraction')
+        clim = apply_mask(clim, sftlf_cube, realm)  
+    
+    plot_data(clim, inargs.month)
     plt.savefig(inargs.outfile)
 
 
 if __name__ == '__main__':
-    description='Plot the precipitation climatology for a given month.'
+    description='Plot the precipitation climatology.'
     parser = argparse.ArgumentParser(description=description)
     
     parser.add_argument("infile", type=str, help="Input file name")
-    parser.add_argument("month",type=str, choices=['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'],  help="Month to plot")
+    parser.add_argument("month", type=str, help="Month to plot")
     parser.add_argument("outfile", type=str, help="Output file name")
-    parser.add_argument("gridlines", default=False , help="If we want gridlines")
-    parser.add_argument("tick_levels", type=float, help="If we want to change the ticks")
+    parser.add_argument("--mask", type=str, nargs=2,
+                    metavar=('SFTLF_FILE', 'REALM'), default=None,
+                    help='Apply a land or ocean mask (specify the realm to mask)')
+
 
     args = parser.parse_args()
     
     main(args)
+
